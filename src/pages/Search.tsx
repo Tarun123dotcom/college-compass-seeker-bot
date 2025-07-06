@@ -5,7 +5,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
-import { Search as SearchIcon, Filter, MapPin, Star, Users, DollarSign, ExternalLink } from "lucide-react";
+import { Search as SearchIcon, Filter, MapPin, Star, Users, DollarSign, ExternalLink, Mic, MicOff } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 const Search = () => {
   const [searchQuery, setSearchQuery] = useState("");
@@ -13,6 +14,8 @@ const Search = () => {
   const [selectedStream, setSelectedStream] = useState("");
   const [ratingRange, setRatingRange] = useState([3.0]);
   const [showFilters, setShowFilters] = useState(false);
+  const [isListening, setIsListening] = useState(false);
+  const { toast } = useToast();
 
   // Mock college data - this would come from your database
   const mockColleges = [
@@ -58,6 +61,57 @@ const Search = () => {
 
   const streams = ["Engineering", "Medical", "Management", "Arts", "Commerce", "Science"];
 
+  const handleVoiceSearch = () => {
+    if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+      toast({
+        title: "Voice Search Not Supported",
+        description: "Your browser doesn't support voice recognition.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const SpeechRecognition = (window as any).webkitSpeechRecognition || (window as any).SpeechRecognition;
+    const recognition = new SpeechRecognition();
+    
+    recognition.continuous = false;
+    recognition.interimResults = false;
+    recognition.lang = 'en-US';
+
+    recognition.onstart = () => {
+      setIsListening(true);
+      toast({
+        title: "Listening...",
+        description: "Speak now to search for colleges",
+      });
+    };
+
+    recognition.onresult = (event: any) => {
+      const transcript = event.results[0][0].transcript;
+      setSearchQuery(transcript);
+      setIsListening(false);
+      toast({
+        title: "Voice Captured",
+        description: `Heard: "${transcript}"`,
+      });
+    };
+
+    recognition.onerror = () => {
+      setIsListening(false);
+      toast({
+        title: "Voice Search Error",
+        description: "Could not recognize speech. Please try again.",
+        variant: "destructive",
+      });
+    };
+
+    recognition.onend = () => {
+      setIsListening(false);
+    };
+
+    recognition.start();
+  };
+
   const handleSearch = () => {
     // This would typically make an API call to your backend
     console.log("Searching with:", { searchQuery, selectedState, selectedStream, ratingRange });
@@ -83,8 +137,22 @@ const Search = () => {
                       placeholder="Search for colleges, courses, or locations..."
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
-                      className="pl-10 h-12"
+                      className="pl-10 pr-12 h-12"
                     />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleVoiceSearch}
+                      disabled={isListening}
+                      className="absolute right-2 top-1/2 transform -translate-y-1/2 h-8 w-8 p-0"
+                    >
+                      {isListening ? (
+                        <MicOff className="h-4 w-4 text-red-500" />
+                      ) : (
+                        <Mic className="h-4 w-4 text-gray-400 hover:text-primary" />
+                      )}
+                    </Button>
                   </div>
                 </div>
                 <Button onClick={handleSearch} size="lg" className="h-12 px-8">
